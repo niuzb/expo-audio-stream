@@ -230,10 +230,10 @@ export function useAudioRecorder({
                 ...analysis.dataPoints,
             ]
 
-            const fullCombinedDataPoints = [
-                ...(fullAnalysisRef.current?.dataPoints ?? []),
-                ...analysis.dataPoints,
-            ]
+            // const fullCombinedDataPoints = [
+            //     ...(fullAnalysisRef.current?.dataPoints ?? []),
+            //     ...analysis.dataPoints,
+            // ]
 
             // Calculate the new duration
             // The number of segments is based on how many segments of segmentDurationMs can fit in visualizationDuration
@@ -258,10 +258,10 @@ export function useAudioRecorder({
             // Keep the full data points
             fullAnalysisRef.current = {
                 ...fullAnalysisRef.current,
-                dataPoints: fullCombinedDataPoints,
+                dataPoints: [],
             }
-            fullAnalysisRef.current.durationMs =
-                fullCombinedDataPoints.length * analysis.segmentDurationMs
+            fullAnalysisRef.current.durationMs = 0;
+                // fullCombinedDataPoints.length * analysis.segmentDurationMs
             savedAnalysisData.dataPoints = combinedDataPoints
             savedAnalysisData.bitDepth =
                 analysis.bitDepth || savedAnalysisData.bitDepth
@@ -584,7 +584,7 @@ export function useAudioRecorder({
         logger?.debug(`stoping recording`)
 
         const stopResult: AudioRecording = await ExpoAudioStream.stopRecording()
-        stopResult.analysisData = fullAnalysisRef.current
+        // stopResult.analysisData = fullAnalysisRef.current
 
         if (analysisListenerRef.current) {
             analysisListenerRef.current.remove()

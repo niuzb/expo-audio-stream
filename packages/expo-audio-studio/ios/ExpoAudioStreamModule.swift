@@ -791,6 +791,84 @@ public class ExpoAudioStreamModule: Module, AudioStreamManagerDelegate, AudioDev
                 }
             }
         }
+        
+        /// Converts a WAV file to M4A (AAC) format.
+        /// - Parameters:
+        ///   - options: A dictionary containing:
+        ///     - `fileUri`: The URI of the input WAV file.
+        ///     - `outputFileName`: Optional name for the output file (defaults to UUID).
+        ///     - `outputSettings`: Optional dictionary of output settings (e.g., sampleRate, channels, bitrate).
+        ///   - promise: A promise to resolve with the conversion result or reject with an error.
+        AsyncFunction("convertWavToM4a") { (options: [String: Any], promise: Promise) in
+            guard let fileUri = options["fileUri"] as? String,
+                  let url = URL(string: fileUri) else {
+                promise.reject("INVALID_ARGUMENTS", "Invalid file URI provided")
+                return
+            }
+
+            let outputFileName = options["outputFileName"] as? String
+            let outputSettings = options["outputSettings"] as? [String: Any]
+
+            Logger.debug("ExpoAudioStreamModule", "convertWavToM4a called:")
+            Logger.debug("ExpoAudioStreamModule", "- Input file: \(fileUri)")
+            Logger.debug("ExpoAudioStreamModule", "- Output filename: \(outputFileName ?? "not specified (will generate UUID)")")
+            if let settings = outputSettings {
+                Logger.debug("ExpoAudioStreamModule", "- Output settings: \(settings)")
+            }
+
+            DispatchQueue.global().async {
+                do {
+                    let audioProcessor = try AudioProcessor(
+                        url: url,
+                        resolve: { result in promise.resolve(result) },
+                        reject: { code, message in promise.reject(code, message) }
+                    )
+
+                    let progressCallback: (Float) -> Void = { progress in
+                        self.sendEvent(trimProgressEvent, [
+                            "progress": progress,
+                            "bytesProcessed": Int64(progress * 100),
+                            "totalBytes": 100
+                        ])
+                    }
+
+                    let startTime = CACurrentMediaTime()
+                    if let result = audioProcessor.convertWavToM4a(
+                        inputURL: url,
+                        outputFileName: outputFileName,
+                        outputSettings: outputSettings,
+                        progressCallback: progressCallback
+                    ) {
+                        let processingTimeMs = Int((CACurrentMediaTime() - startTime) * 1000)
+                        var resultDict = result.toDictionary()
+                        resultDict["processingInfo"] = ["durationMs": processingTimeMs]
+                        
+                        let uri = result.uri
+                        Logger.debug("ExpoAudioStreamModule", "Conversion completed successfully in \(processingTimeMs)ms")
+                        Logger.debug("ExpoAudioStreamModule", "Output file URI: \(uri)")
+                        
+                        // Verify file exists
+                        let fileManager = FileManager.default
+                        if let url = URL(string: uri) {
+                            let exists = fileManager.fileExists(atPath: url.path)
+                            Logger.debug("ExpoAudioStreamModule", "File exists at path \(url.path): \(exists)")
+                            
+                            // Log filename details
+                            Logger.debug("ExpoAudioStreamModule", "Filename: \(url.lastPathComponent)")
+                            Logger.debug("ExpoAudioStreamModule", "File extension: \(url.pathExtension.lowercased())")
+                        }
+                        
+                        promise.resolve(resultDict)
+                    } else {
+                        Logger.debug("ExpoAudioStreamModule", "Failed to convert WAV to M4A")
+                        promise.reject("CONVERSION_ERROR", "Failed to convert WAV to M4A")
+                    }
+                } catch {
+                    Logger.debug("ExpoAudioStreamModule", "Failed to initialize audio processor: \(error.localizedDescription)")
+                    promise.reject("PROCESSING_ERROR", "Failed to initialize audio processor: \(error.localizedDescription)")
+                }
+            }
+        }
     }
     
     func audioStreamManager(_ manager: AudioStreamManager, didReceiveInterruption info: [String: Any]) {

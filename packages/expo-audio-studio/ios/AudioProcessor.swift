@@ -1148,4 +1148,174 @@ public class AudioProcessor {
     private func getDocumentsDirectory() -> URL {
         return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
+    
+    /// Converts a WAV file to M4A (AAC) format.
+    /// - Parameters:
+    ///   - inputURL: The URL of the input WAV file.
+    ///   - outputFileName: Optional name for the output file (defaults to UUID).
+    ///   - outputSettings: Optional dictionary of output settings (e.g., sampleRate, channels, bitrate).
+    ///   - progressCallback: Optional callback for reporting conversion progress (0.0 to 100.0).
+    /// - Returns: A `TrimResult` object containing details of the converted file, or nil on failure.
+    public func convertWavToM4a(
+        inputURL: URL,
+        outputFileName: String? = nil,
+        outputSettings: [String: Any]? = nil,
+        progressCallback: ((Float) -> Void)? = nil
+    ) -> TrimResult? {
+        Logger.debug("AudioProcessor", "Starting WAV to M4A conversion for: \(inputURL.path)")
+
+        do {
+            // Initialize audio file from input URL
+            let inputAudioFile = try AVAudioFile(forReading: inputURL)
+            let inputFormat = inputAudioFile.processingFormat
+            let inputSampleRate = inputFormat.sampleRate
+            let inputChannels = Int(inputFormat.channelCount)
+            let totalFrames = inputAudioFile.length
+            let totalDurationMs = Double(totalFrames) / inputSampleRate * 1000
+
+            // Setup output settings for AAC/M4A with validation
+            let targetSampleRate = outputSettings?["sampleRate"] as? Double ?? inputSampleRate
+            let targetChannels = outputSettings?["channels"] as? Int ?? inputChannels
+            let bitrate = outputSettings?["bitrate"] as? Int ?? 128000
+
+            // Validate parameters with more reasonable ranges
+            let validSampleRate = max(8000.0, min(96000.0, targetSampleRate)) // Extended range for AAC
+            let validChannels = max(1, min(6, targetChannels)) // Support up to 6 channels
+            let validBitrate = max(64000, min(512000, bitrate)) // More reasonable bitrate range
+            
+            Logger.debug("AudioProcessor", "AAC encoding parameters: sampleRate=\(validSampleRate), channels=\(validChannels), bitrate=\(validBitrate)")
+            
+            // Create AAC output format directly
+            let outputFormat = AVAudioFormat(settings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: validSampleRate,
+                AVNumberOfChannelsKey: validChannels,
+                AVEncoderBitRateKey: validBitrate,
+                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+            ])!
+            
+            let outputURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(outputFileName ?? UUID().uuidString)
+                .appendingPathExtension("m4a")
+
+            // Create converter directly from input format to AAC output format
+            guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
+                Logger.debug("AudioProcessor", "Failed to create audio converter from \(inputFormat) to \(outputFormat)")
+                return nil
+            }
+
+            // Create input buffer for reading PCM data
+            let inputBufferFrameCapacity: AVAudioFrameCount = 4096
+            guard let inputBuffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: inputBufferFrameCapacity) else {
+                Logger.debug("AudioProcessor", "Failed to create input buffer")
+                return nil
+            }
+
+            // Create output buffer for AAC data
+            let outputBufferFrameCapacity: AVAudioFrameCount = 4096
+            guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: outputBufferFrameCapacity) else {
+                Logger.debug("AudioProcessor", "Failed to create output buffer")
+                return nil
+            }
+
+            // Create output file
+            let outputAudioFile = try AVAudioFile(forWriting: outputURL, settings: outputFormat.settings)
+            Logger.debug("AudioProcessor", "Created output file: \(outputURL.path)")
+
+            // Calculate expected total output frames for progress tracking
+            let totalOutputFrames = Int64(Double(totalFrames) * (validSampleRate / inputSampleRate))
+            var cumulativeFrames: Int64 = 0
+
+            // Read and convert in chunks
+            var currentFrame: AVAudioFramePosition = 0
+            while currentFrame < totalFrames {
+                let framesToRead = min(inputBufferFrameCapacity, AVAudioFrameCount(totalFrames - currentFrame))
+
+                inputAudioFile.framePosition = currentFrame
+                try inputAudioFile.read(into: inputBuffer, frameCount: framesToRead)
+
+                // Stateful input block to prevent duplicate data
+                var inputProvided = false
+                let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
+                    if !inputProvided {
+                        inputProvided = true
+                        outStatus.pointee = .haveData
+                        return inputBuffer
+                    } else {
+                        outStatus.pointee = .noDataNow
+                        return nil
+                    }
+                }
+
+                // Convert PCM to AAC
+                var error: NSError?
+                let status = converter.convert(to: outputBuffer, error: &error, withInputFrom: inputBlock)
+
+                if status == .error {
+                    Logger.debug("AudioProcessor", "Conversion error: \(error?.localizedDescription ?? "Unknown error")")
+                    return nil
+                }
+
+                if status == .haveData && outputBuffer.frameLength > 0 {
+                    // Write converted data to file
+                    try outputAudioFile.write(from: outputBuffer)
+                    cumulativeFrames += Int64(outputBuffer.frameLength)
+                }
+
+                // Update progress with correct calculation
+                if let progressCallback = progressCallback {
+                    let progress = Float(cumulativeFrames) / Float(totalOutputFrames) * 100.0
+                    progressCallback(min(100.0, progress))
+                }
+
+                currentFrame += AVAudioFramePosition(framesToRead)
+            }
+
+            // Handle any remaining data in the converter
+            var finalInputProvided = false
+            let finalInputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
+                if !finalInputProvided {
+                    finalInputProvided = true
+                    outStatus.pointee = .endOfStream
+                    return nil
+                } else {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+            }
+
+            var finalError: NSError?
+            let finalStatus = converter.convert(to: outputBuffer, error: &finalError, withInputFrom: finalInputBlock)
+            if finalStatus == .haveData && outputBuffer.frameLength > 0 {
+                try outputAudioFile.write(from: outputBuffer)
+            }
+
+            Logger.debug("AudioProcessor", "Conversion completed: \(outputURL.path)")
+            Logger.debug("AudioProcessor", "- File size: \((try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64) ?? 0) bytes")
+
+            // Create result
+            let compression: [String: Any] = [
+                "bitrate": validBitrate,
+                "sampleRate": validSampleRate,
+                "channels": validChannels
+            ]
+
+            return TrimResult(
+                uri: outputURL.absoluteString,
+                filename: outputURL.lastPathComponent,
+                durationMs: totalDurationMs,
+                size: (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64) ?? 0,
+                sampleRate: Int(validSampleRate),
+                channels: validChannels,
+                bitDepth: 16, // AAC is typically 16-bit effective
+                mimeType: "audio/mp4",
+                requestedFormat: "m4a",
+                actualFormat: "m4a",
+                compression: compression
+            )
+        } catch {
+            Logger.debug("AudioProcessor", "Conversion failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
 }

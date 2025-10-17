@@ -4,6 +4,8 @@ import {
     TrimAudioOptions,
     TrimAudioResult,
     TrimProgressEvent,
+    ConvertWavToM4aOptions,
+    ConvertWavToM4aResult,
 } from './ExpoAudioStream.types'
 import ExpoAudioStreamModule from './ExpoAudioStreamModule'
 
@@ -86,5 +88,92 @@ export async function trimAudioSimple(
     options: TrimAudioOptions
 ): Promise<string> {
     const result = await trimAudio(options)
+    return result.uri
+}
+
+/**
+ * Converts a WAV file to M4A (AAC) format.
+ *
+ * @experimental This API is experimental and not fully optimized for production use.
+ * Performance may vary based on file size and device capabilities.
+ * Future versions may include breaking changes.
+ *
+ * @param options Configuration options for the conversion operation
+ * @param progressCallback Optional callback to receive progress updates
+ * @returns Promise resolving to the converted audio file information, including processing time
+ * 
+ * @example
+ * ```typescript
+ * import { convertWavToM4a } from 'expo-audio-studio';
+ * 
+ * // Basic conversion
+ * const result = await convertWavToM4a({
+ *   fileUri: 'file:///path/to/input.wav',
+ *   outputFileName: 'converted-audio',
+ *   outputSettings: {
+ *     sampleRate: 44100,
+ *     channels: 2,
+ *     bitrate: 128000
+ *   }
+ * });
+ * 
+ * console.log('Converted file URI:', result.uri);
+ * console.log('File size:', result.size, 'bytes');
+ * 
+ * // With progress tracking
+ * const resultWithProgress = await convertWavToM4a(
+ *   {
+ *     fileUri: 'file:///path/to/input.wav'
+ *   },
+ *   (progress) => {
+ *     console.log(`Conversion progress: ${progress.progress}%`);
+ *   }
+ * );
+ * ```
+ */
+export async function convertWavToM4a(
+    options: ConvertWavToM4aOptions,
+    progressCallback?: (event: TrimProgressEvent) => void
+): Promise<ConvertWavToM4aResult> {
+    // Validation
+    if (!options.fileUri) {
+        throw new Error('fileUri is required')
+    }
+
+    // Set up progress event listener if callback is provided
+    let subscription: EventSubscription | undefined
+    if (progressCallback) {
+        subscription = emitter.addListener(
+            'TrimProgress',
+            (event: TrimProgressEvent) => {
+                progressCallback(event)
+            }
+        )
+    }
+
+    try {
+        const result = await ExpoAudioStreamModule.convertWavToM4a(options)
+        return result
+    } finally {
+        if (subscription) {
+            subscription.remove()
+        }
+    }
+}
+
+/**
+ * Simplified version of convertWavToM4a that returns only the URI of the converted file.
+ *
+ * @experimental This API is experimental and not fully optimized for production use.
+ * Performance may vary based on file size and device capabilities.
+ * Future versions may include breaking changes.
+ *
+ * @param options Configuration options for the conversion operation
+ * @returns Promise resolving to the URI of the converted M4A file
+ */
+export async function convertWavToM4aSimple(
+    options: ConvertWavToM4aOptions
+): Promise<string> {
+    const result = await convertWavToM4a(options)
     return result.uri
 }

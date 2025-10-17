@@ -12,7 +12,7 @@ import {
     useSharedAudioRecorder,
 } from './AudioRecorder.provider'
 import ExpoAudioStreamModule from './ExpoAudioStreamModule'
-import { trimAudio } from './trimAudio'
+import { trimAudio, convertWavToM4a, convertWavToM4aSimple } from './trimAudio'
 import { useAudioRecorder } from './useAudioRecorder'
 
 export * from './utils/convertPCMToFloat32'
@@ -43,6 +43,8 @@ export {
     extractAudioAnalysis,
     extractPreview,
     trimAudio,
+    convertWavToM4a,
+    convertWavToM4aSimple,
     extractAudioData,
     extractMelSpectrogram,
     useAudioRecorder,

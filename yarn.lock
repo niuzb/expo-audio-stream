@@ -9424,7 +9424,7 @@ __metadata:
     eslint-plugin-react: "npm:^7.34.1"
     expo: "npm:^53.0.9"
     expo-module-scripts: "npm:^4.1.7"
-    expo-modules-core: "npm:2.4.0"
+    expo-modules-core: "npm:~2.2.3"
     jest: "npm:^29.7.0"
     prettier: "npm:^3.2.5"
     react: "npm:19.0.0"
@@ -9437,7 +9437,7 @@ __metadata:
     typescript: "npm:~5.8.3"
   peerDependencies:
     expo: "*"
-    expo-modules-core: ~2.4.0
+    expo-modules-core: ~2.2.3
     react: "*"
     react-native: "*"
   languageName: unknown
@@ -20534,7 +20534,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-modules-core@npm:2.2.3":
+"expo-modules-core@npm:2.2.3, expo-modules-core@npm:~2.2.3":
   version: 2.2.3
   resolution: "expo-modules-core@npm:2.2.3"
   dependencies:
@@ -20558,15 +20558,6 @@ __metadata:
   dependencies:
     invariant: "npm:^2.2.4"
   checksum: 10/850d424c8203a43ea2556b00d2ff3b9992e0f7b474f91b1a813a570a2ab7bf99a5c8c90562f4f2acee5ce411fbc6d5304fc98049bfd5ba5699d082fe179f1869
-  languageName: node
-  linkType: hard
-
-"expo-modules-core@npm:2.4.0":
-  version: 2.4.0
-  resolution: "expo-modules-core@npm:2.4.0"
-  dependencies:
-    invariant: "npm:^2.2.4"
-  checksum: 10/f0ae08520b41dc6c6a526e641796ce2257f7cf81dc30d0dec74b7612373f3e00b73682bb04686cff211cb407fdfe2fb77f6befd537d2dfd32f1cd5eff4c31d41
   languageName: node
   linkType: hard
 

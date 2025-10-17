@@ -872,3 +872,126 @@ export interface TrimAudioResult {
         durationMs: number
     }
 }
+
+/**
+ * Options for converting a WAV file to M4A (AAC) format.
+ */
+export interface ConvertWavToM4aOptions {
+    /**
+     * The URI of the input WAV file to convert.
+     */
+    fileUri: string
+
+    /**
+     * Optional name for the output file. If not provided, a UUID will be generated.
+     */
+    outputFileName?: string
+
+    /**
+     * Optional settings for the output M4A file.
+     */
+    outputSettings?: {
+        /**
+         * The sample rate of the output audio in Hertz (Hz).
+         * If not provided, the input audio's sample rate is used.
+         */
+        sampleRate?: number
+
+        /**
+         * The number of channels in the output audio (1 for mono, 2 for stereo).
+         * If not provided, the input audio's channel count is used.
+         */
+        channels?: number
+
+        /**
+         * The bitrate of the output audio in bits per second.
+         * Default is 128000 (128 kbps).
+         */
+        bitrate?: number
+    }
+}
+
+/**
+ * Result of the WAV to M4A conversion operation.
+ */
+export interface ConvertWavToM4aResult {
+    /**
+     * The URI of the converted M4A file.
+     */
+    uri: string
+
+    /**
+     * The filename of the converted M4A file.
+     */
+    filename: string
+
+    /**
+     * The duration of the converted audio in milliseconds.
+     */
+    durationMs: number
+
+    /**
+     * The size of the converted M4A file in bytes.
+     */
+    size: number
+
+    /**
+     * The sample rate of the converted audio in Hertz (Hz).
+     */
+    sampleRate: number
+
+    /**
+     * The number of channels in the converted audio (1 for mono, 2 for stereo).
+     */
+    channels: number
+
+    /**
+     * The bit depth of the converted audio (typically 16 for AAC).
+     */
+    bitDepth: number
+
+    /**
+     * The MIME type of the converted audio file (audio/mp4 for M4A).
+     */
+    mimeType: string
+
+    /**
+     * The requested format of the output file.
+     */
+    requestedFormat: string
+
+    /**
+     * The actual format of the output file.
+     */
+    actualFormat: string
+
+    /**
+     * Information about the compression settings used.
+     */
+    compression?: {
+        /**
+         * The bitrate used for compression in bits per second.
+         */
+        bitrate: number
+
+        /**
+         * The sample rate of the compressed audio.
+         */
+        sampleRate: number
+
+        /**
+         * The number of channels in the compressed audio.
+         */
+        channels: number
+    }
+
+    /**
+     * Information about the processing time.
+     */
+    processingInfo?: {
+        /**
+         * The time it took to process the conversion in milliseconds.
+         */
+        durationMs: number
+    }
+}
